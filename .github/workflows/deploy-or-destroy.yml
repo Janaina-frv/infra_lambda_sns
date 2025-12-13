@@ -127,11 +127,21 @@ jobs:
           mkdir -p libs
           curl -o libs/aws-lambda-java-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-lambda-java-core/1.2.1/aws-lambda-java-core-1.2.1.jar
 
+      - name: Baixar dependência AWS SDK SNS
+        if: env.TF_ACTION == 'apply'
+        run: |
+          curl -o libs/aws-java-sdk-sns.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-sns/1.12.700/aws-java-sdk-sns-1.12.700.jar
+          curl -o libs/aws-java-sdk-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-core/1.12.700/aws-java-sdk-core-1.12.700.jar
+
       - name: Compilar projeto e gerar JAR
         if: env.TF_ACTION == 'apply'
         run: |
           mkdir -p infra/build/lambda
-          javac -cp libs/aws-lambda-java-core.jar -d infra/build/lambda $PATH_JAVA
+          javac \
+            -cp "libs/aws-lambda-java-core.jar:libs/aws-java-sdk-sns.jar:libs/aws-java-sdk-core.jar" \
+            -d infra/build/lambda \
+            $PATH_JAVA        
+          
           cd infra/build/lambda
           jar cf hello-lambda.jar $PATH_CLASS
 
