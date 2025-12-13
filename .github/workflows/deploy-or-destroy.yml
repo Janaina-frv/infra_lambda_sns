@@ -19,6 +19,7 @@ jobs:
       TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: HelloWorldLambda
+      SNS_NAME: feedback_urgente-sns
       PATH_JAVA: lambda/src/main/java/com/example/HelloWorldHandler.java
       PATH_CLASS: com/example/HelloWorldHandler.class
 
