@@ -5,5 +5,5 @@ variable "aws_region" {
 }
 variable "sns_topic_exists" {
   type    = bool
-  default = true  # ou false se não existir
+  default = false
 }
