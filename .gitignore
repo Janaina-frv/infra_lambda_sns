@@ -1,0 +1,9 @@
+# Ignorar arquivos de log
+*.log
+# Ignorar diretórios de compilação
+/build
+# Ignorar arquivos temporários
+*~
+
+# Ignorar arquivos InteliJ
+.idea
