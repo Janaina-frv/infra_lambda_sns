@@ -4,8 +4,7 @@ resource "aws_lambda_function" "hello_lambda" {
   handler       = "com.example.HelloWorldHandler"
   runtime       = "java11"
 
-  filename         = "${path.module}/build/lambda/hello-lambda.jar"
-  source_code_hash = filebase64sha256("${path.module}/build/lambda/hello-lambda.jar")
+  filename      = "${path.module}/build/lambda/hello-lambda.jar"
 
   memory_size = 512
   timeout     = 10
