@@ -1,0 +1,56 @@
+name: Deploy Lambda Code Only
+
+on:
+  push:
+    branches:
+      - update
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-code:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: 757367947438
+      FUNCTION_NAME: HelloWorldLambda
+      PATH_JAVA: lambda/src/main/java/com/example/HelloWorldHandler.java
+      PATH_CLASS: com/example/HelloWorldHandler.class
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Autenticar com AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::757367947438:role/GitHubOIDCRole
+          aws-region: us-east-1
+
+      - name: Instalar Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Baixar dependência AWS Lambda Java Core
+        run: |
+          mkdir -p libs
+          curl -o libs/aws-lambda-java-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-lambda-java-core/1.2.1/aws-lambda-java-core-1.2.1.jar
+
+      - name: Compilar projeto e gerar JAR
+        run: |
+          mkdir -p build/lambda
+          javac -cp libs/aws-lambda-java-core.jar -d build/lambda $PATH_JAVA
+          cd build/lambda
+          jar cf hello-lambda.jar $PATH_CLASS
+
+      - name: Atualizar código da Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name $FUNCTION_NAME \
+            --zip-file fileb://build/lambda/hello-lambda.jar \
+            --region $AWS_REGION

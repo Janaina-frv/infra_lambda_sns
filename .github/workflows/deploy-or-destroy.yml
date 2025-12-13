@@ -1,0 +1,142 @@
+name: Deploy or Destroy AWS Lambda on develop
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: 757367947438
+      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      RESOURCE_NAME: hello_lambda
+      FUNCTION_NAME: HelloWorldLambda
+      PATH_JAVA: lambda/src/main/java/com/example/HelloWorldHandler.java
+      PATH_CLASS: com/example/HelloWorldHandler.class
+
+    steps:
+      # Iniciando e configurando
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Autenticar com AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::757367947438:role/GitHubOIDCRole
+          aws-region: us-east-1
+
+      - name: Verificar modo de operação
+        run: echo "Iniciando workflow em modo $TF_ACTION"
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Inicializar Terraform
+        working-directory: infra
+        run: terraform init
+
+      - name: Validar Terraform
+        working-directory: infra
+        run: terraform validate
+
+      # Configuracoes SNS
+
+      - name: Verificar existência de SNS
+        id: sns_check
+        run: |
+          set +e
+          SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
+          SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
+          set -e
+          
+          if [ -n "$SNS_CHECK" ]; then
+            echo "✅ SNS encontrado: $SNS_ARN"
+            echo "sns_exists=true" >> $GITHUB_OUTPUT
+            echo "sns_arn=$SNS_ARN" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ SNS não encontrado."
+            echo "sns_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Importar SNS se existir
+        if: steps.sns_check.outputs.sns_exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Importando SNS para o estado..."
+          terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}"
+
+      - name: Executar destroy da SNS
+        if: env.TF_ACTION == 'destroy' && steps.sns_check.outputs.sns_exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo SNS..."
+          terraform destroy -target=aws_sns_topic.feedback_urgente -auto-approve
+
+      - name: Executar apply da SNS
+        if: env.TF_ACTION == 'apply' && steps.sns_check.outputs.sns_exists == 'false'
+        working-directory: infra
+        run: |
+          echo "Criando SNS..."
+          terraform apply -target=aws_sns_topic.feedback_urgente -auto-approve
+
+      # Construção da Lambda
+      - name: Verificar existência de Lambda
+        id: lambda_check
+        run: |
+          if aws lambda get-function --function-name $FUNCTION_NAME; then
+            echo "✅ Lambda encontrada: $FUNCTION_NAME"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Lambda não encontrada."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Importar Lambda se existir
+        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Importando Lambda para o estado..."
+          terraform import aws_lambda_function.${RESOURCE_NAME} ${FUNCTION_NAME}
+
+      - name: Executar destroy da Lambda
+        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo Lambda..."
+          terraform destroy -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
+
+      - name: Instalar Java e compilar (modo apply)
+        if: env.TF_ACTION == 'apply'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Baixar dependência AWS Lambda Java Core
+        if: env.TF_ACTION == 'apply'
+        run: |
+          mkdir -p libs
+          curl -o libs/aws-lambda-java-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-lambda-java-core/1.2.1/aws-lambda-java-core-1.2.1.jar
+
+      - name: Compilar projeto e gerar JAR
+        if: env.TF_ACTION == 'apply'
+        run: |
+          mkdir -p infra/build/lambda
+          javac -cp libs/aws-lambda-java-core.jar -d infra/build/lambda $PATH_JAVA
+          cd infra/build/lambda
+          jar cf hello-lambda.jar $PATH_CLASS
+
+      - name: Executar apply da Lambda
+        if: env.TF_ACTION == 'apply' && steps.lambda_check.outputs.exists == 'false'
+        working-directory: infra
+        run: |
+          echo "Criando Lambda..."
+          terraform apply -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
