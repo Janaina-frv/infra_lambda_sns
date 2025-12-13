@@ -133,7 +133,7 @@ jobs:
           curl -o libs/aws-java-sdk-sns.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-sns/1.12.700/aws-java-sdk-sns-1.12.700.jar
           curl -o libs/aws-java-sdk-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-core/1.12.700/aws-java-sdk-core-1.12.700.jar
 
-      - name: Compilar projeto e gerar JAR
+      - name: Compilar projeto e gerar JAR com dependências
         if: env.TF_ACTION == 'apply'
         run: |
           mkdir -p infra/build/lambda
@@ -143,7 +143,12 @@ jobs:
             $PATH_JAVA        
           
           cd infra/build/lambda
-          jar cf hello-lambda.jar $PATH_CLASS
+          mkdir -p tmp
+          cp ../../../../libs/*.jar tmp/
+          for jar in tmp/*.jar; do
+          jar xf $jar
+          done
+          jar cf hello-lambda.jar .
 
       - name: Executar apply da Lambda
         if: env.TF_ACTION == 'apply' && steps.lambda_check.outputs.exists == 'false'

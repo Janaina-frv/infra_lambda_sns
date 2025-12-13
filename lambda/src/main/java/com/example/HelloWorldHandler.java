@@ -24,9 +24,13 @@ public class HelloWorldHandler implements RequestHandler<String, String> {
                 .withMessage(input)
                 .withSubject("Mensagem da Lambda");
 
-        PublishResult result = snsClient.publish(publishRequest);
-
-        context.getLogger().log("Mensagem enviada. MessageId: " + result.getMessageId());
+        try {
+            PublishResult result = snsClient.publish(publishRequest);
+            context.getLogger().log("Mensagem enviada. MessageId: " + result.getMessageId());
+        } catch (Exception e) {
+            context.getLogger().log("Erro ao enviar mensagem: " + e.getMessage());
+            return "Falha ao enviar mensagem para o SNS";
+        }
 
         return "Mensagem enviada para o SNS com sucesso!";
     }
