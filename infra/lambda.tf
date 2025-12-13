@@ -11,7 +11,7 @@ resource "aws_lambda_function" "hello_lambda" {
 
   environment {
     variables = {
-      SNS_TOPIC_ARN = data.aws_sns_topic.feedback_urgente.arn
+      SNS_TOPIC_ARN = var.sns_topic_exists ? data.aws_sns_topic.feedback_urgente[0].arn : ""
     }
   }
 }

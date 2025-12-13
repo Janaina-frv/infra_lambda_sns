@@ -3,5 +3,6 @@ data "aws_iam_role" "lambda_exec_role" {
 }
 
 data "aws_sns_topic" "feedback_urgente" {
-  name = "feedback_urgente-sns"
+  count = var.sns_topic_exists ? 1 : 0
+  name  = "feedback_urgente-sns"
 }

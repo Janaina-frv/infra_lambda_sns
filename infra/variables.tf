@@ -3,3 +3,7 @@ variable "aws_region" {
   type        = string
   default     = "us-east-1"
 }
+variable "sns_topic_exists" {
+  type    = bool
+  default = true  # ou false se não existir
+}
