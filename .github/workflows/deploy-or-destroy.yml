@@ -144,7 +144,7 @@ jobs:
           
           cd infra/build/lambda
           mkdir -p tmp
-          cp ../../../../libs/*.jar tmp/
+          cp ../../../libs/*.jar tmp/
           for jar in tmp/*.jar; do
           jar xf $jar
           done
