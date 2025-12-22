@@ -11,7 +11,7 @@ resource "aws_lambda_function" "hello_lambda" {
 
   environment {
     variables = {
-      SNS_TOPIC_ARN = "https://sqs.us-east-1.amazonaws.com/757367947438/feedback_urgente-sqs"
+      SNS_TOPIC_ARN = "arn:aws:sqs:us-east-1:757367947438:feedback_urgente-sqs"
     }
   }
 }
