@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: HelloWorldLambda
       SNS_NAME: feedback_urgente-sns
@@ -133,22 +133,17 @@ jobs:
           curl -o libs/aws-java-sdk-sns.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-sns/1.12.700/aws-java-sdk-sns-1.12.700.jar
           curl -o libs/aws-java-sdk-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-core/1.12.700/aws-java-sdk-core-1.12.700.jar
 
-      - name: Compilar projeto e gerar JAR com dependências
+      - name: Build Lambda com Maven (fat jar)
+        if: env.TF_ACTION == 'apply'
+        working-directory: lambda
+        run: mvn clean package
+
+      - name: Copiar JAR da Lambda
         if: env.TF_ACTION == 'apply'
         run: |
           mkdir -p infra/build/lambda
-          javac \
-            -cp "libs/aws-lambda-java-core.jar:libs/aws-java-sdk-sns.jar:libs/aws-java-sdk-core.jar" \
-            -d infra/build/lambda \
-            $PATH_JAVA        
-          
-          cd infra/build/lambda
-          mkdir -p tmp
-          cp ../../../libs/*.jar tmp/
-          for jar in tmp/*.jar; do
-          jar xf $jar
-          done
-          jar cf hello-lambda.jar .
+          cp lambda/target/hello-lambda-1.0.jar infra/build/lambda/lambda.jar
+
 
       - name: Executar apply da Lambda
         if: env.TF_ACTION == 'apply' && steps.lambda_check.outputs.exists == 'false'
