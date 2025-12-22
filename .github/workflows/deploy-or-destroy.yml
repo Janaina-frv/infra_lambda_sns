@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: HelloWorldLambda
       SNS_NAME: feedback_urgente-sns
@@ -73,6 +73,11 @@ jobs:
         run: |
           echo "Importando SNS para o estado..."
           terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}"
+
+      - name: Set SNS ARN for Terraform
+        if: env.TF_ACTION == 'apply' && steps.sns_check.outputs.sns_exists == 'true'
+        run: |
+          echo "TF_VAR_sns_arn=${{ steps.sns_check.outputs.sns_arn }}" >> $GITHUB_ENV
 
       - name: Executar destroy da SNS
         if: env.TF_ACTION == 'destroy' && steps.sns_check.outputs.sns_exists == 'true'
