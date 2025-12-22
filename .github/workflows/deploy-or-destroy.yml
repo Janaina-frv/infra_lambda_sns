@@ -142,7 +142,7 @@ jobs:
         if: env.TF_ACTION == 'apply'
         run: |
           mkdir -p infra/build/lambda
-          cp lambda/target/hello-lambda-1.0.jar infra/build/lambda/lambda.jar
+          cp lambda/target/hello-lambda-1.0.jar infra/build/lambda/hello-lambda.jar
 
 
       - name: Executar apply da Lambda
