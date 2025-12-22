@@ -165,13 +165,6 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Importar IAM Policy para o estado
-        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
-        working-directory: infra
-        run: |
-          echo "Importando IAM Policy para o estado..."
-          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy
-
       # Verificar existência da IAM Role
       - name: Verificar existência da IAM Role
         id: iam_role_check
@@ -183,6 +176,15 @@ jobs:
             echo "⚠️ IAM Role não encontrada"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Importar IAM Role e Policy
+        if: env.TF_ACTION == 'destroy'
+        working-directory: infra
+        run: |
+          terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual
+          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy
+          terraform import aws_iam_role_policy_attachment.lambda_policy_attach lambda-java-exec-role-manual/lambda-sns-publish-policy
+
 
       # Destruir attachment da IAM Policy da Lambda
       - name: Destruir attachment da IAM Policy (se existir)
