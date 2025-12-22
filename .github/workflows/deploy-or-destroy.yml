@@ -151,13 +151,12 @@ jobs:
         run: |
           echo "Criando Lambda..."
           terraform apply -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
-          
 
-      # Destroy IAM Policy (Lambda)
+      # Verificar existência da IAM Policy
       - name: Verificar existência da IAM Policy
         id: iam_policy_check
         run: |
-          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sns-publish-policy; then
+          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sns-publish-policy >/dev/null 2>&1; then
             echo "✅ IAM Policy encontrada"
             echo "exists=true" >> $GITHUB_OUTPUT
           else
@@ -169,7 +168,7 @@ jobs:
       - name: Verificar existência da IAM Role
         id: iam_role_check
         run: |
-          if aws iam get-role --role-name lambda-java-exec-role-manual; then
+          if aws iam get-role --role-name lambda-java-exec-role-manual >/dev/null 2>&1; then
             echo "✅ IAM Role encontrada"
             echo "exists=true" >> $GITHUB_OUTPUT
           else
@@ -177,30 +176,34 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
+      # Importar IAM Role e Policy (apenas se existirem)
       - name: Importar IAM Role e Policy
-        if: env.TF_ACTION == 'destroy'
+        if: env.TF_ACTION == 'destroy' && (steps.iam_role_check.outputs.exists == 'true' || steps.iam_policy_check.outputs.exists == 'true')
         working-directory: infra
         run: |
-          terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual
-          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy
-          terraform import aws_iam_role_policy_attachment.lambda_policy_attach lambda-java-exec-role-manual/lambda-sns-publish-policy
+          if [ "${{ steps.iam_role_check.outputs.exists }}" == "true" ]; then
+            terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual || echo "IAM Role já importada ou não existe"
+          fi
+          if [ "${{ steps.iam_policy_check.outputs.exists }}" == "true" ]; then
+            terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada ou não existe"
+            terraform import aws_iam_role_policy_attachment.lambda_policy_attach lambda-java-exec-role-manual/lambda-sns-publish-policy || echo "Attachment já importado ou não existe"
+          fi
 
-
-      # Destruir attachment da IAM Policy da Lambda
-      - name: Destruir attachment da IAM Policy (se existir)
-        if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.exists == 'true'
+      # Destruir attachment da IAM Policy (se existir)
+      - name: Destruir attachment da IAM Policy
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
         working-directory: infra
         run: |
           echo "Destruindo attachment da IAM Policy..."
-          terraform destroy -target=aws_iam_role_policy_attachment.lambda_policy_attach -auto-approve
+          terraform destroy -target=aws_iam_role_policy_attachment.lambda_policy_attach -auto-approve || echo "Attachment não encontrado ou já destruído"
 
-      # Destruir IAM Policy da Lambda
+      # Destruir IAM Policy
       - name: Destruir IAM Policy
-        if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.exists == 'true'
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
         working-directory: infra
         run: |
           echo "Destruindo IAM Policy..."
-          terraform destroy -target=aws_iam_policy.lambda_policy -auto-approve
+          terraform destroy -target=aws_iam_policy.lambda_policy -auto-approve || echo "Policy não encontrada ou já destruída"
 
       # Destruir IAM Role
       - name: Destruir IAM Role
@@ -208,6 +211,6 @@ jobs:
         working-directory: infra
         run: |
           echo "Destruindo IAM Role..."
-          terraform destroy -target=aws_iam_role.lambda_exec_role -auto-approve
+          terraform destroy -target=aws_iam_role.lambda_exec_role -auto-approve || echo "Role não encontrada ou já destruída"
 
 
