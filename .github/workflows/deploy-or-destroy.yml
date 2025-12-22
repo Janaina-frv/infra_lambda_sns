@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: HelloWorldLambda
       SNS_NAME: feedback_urgente-sns
@@ -151,3 +151,38 @@ jobs:
         run: |
           echo "Criando Lambda..."
           terraform apply -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
+          
+
+      # Destroy IAM Policy (Lambda)
+      - name: Verificar existência da IAM Policy
+        id: iam_policy_check
+        run: |
+          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sns-publish-policy; then
+            echo "✅ IAM Policy encontrada"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ IAM Policy não encontrada"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Importar IAM Policy para o estado
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Importando IAM Policy para o estado..."
+          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy
+
+      - name: Executar destroy da IAM Policy
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo IAM Policy..."
+          terraform destroy -target=aws_iam_policy.lambda_policy -auto-approve
+
+      - name: Executar destroy do attachment da IAM Policy
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo attachment da IAM Policy..."
+          terraform destroy -target=aws_iam_role_policy_attachment.lambda_policy_attach -auto-approve
+
