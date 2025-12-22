@@ -74,10 +74,12 @@ jobs:
           echo "Importando SNS para o estado..."
           terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}"
 
-      - name: Set SNS ARN for Terraform
+      - name: Set SNS ARN Terraform variables
         if: env.TF_ACTION == 'apply' && steps.sns_check.outputs.sns_exists == 'true'
         run: |
+          echo "TF_VAR_tf_action=$TF_ACTION" >> $GITHUB_ENV
           echo "TF_VAR_sns_arn=${{ steps.sns_check.outputs.sns_arn }}" >> $GITHUB_ENV
+
 
       - name: Executar destroy da SNS
         if: env.TF_ACTION == 'destroy' && steps.sns_check.outputs.sns_exists == 'true'
