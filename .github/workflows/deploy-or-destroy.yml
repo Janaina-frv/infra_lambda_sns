@@ -48,18 +48,6 @@ jobs:
         working-directory: infra
         run: terraform validate
 
-      # Verificar existência da IAM Policy
-      - name: Verificar existência da IAM Policy
-        id: iam_policy_check
-        run: |
-          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sns-publish-policy >/dev/null 2>&1; then
-            echo "✅ IAM Policy encontrada"
-            echo "policy_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ IAM Policy não encontrada"
-            echo "policy_exists=false" >> $GITHUB_OUTPUT
-          fi
-
       # Verificar existência da IAM Role
       - name: Verificar existência da IAM Role
         id: iam_role_check
@@ -72,40 +60,59 @@ jobs:
             echo "role_exists=false" >> $GITHUB_OUTPUT
           fi
 
+      # Importar IAM Role
       - name: Importar IAM Role
-        if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.exists == 'true'
+        if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.role_exists == 'true'
         working-directory: infra
         run: |
           echo "Importando IAM Role..."
           terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual || echo "IAM Role já importada ou não existe"
 
-      - name: Importar IAM Policy e attachment
-        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
+      # Verificar existência da IAM Policy
+      - name: Verificar existência da IAM Policy
+        id: iam_policy_check
+        run: |
+          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sns-publish-policy >/dev/null 2>&1; then
+            echo "✅ IAM Policy encontrada"
+            echo "policy_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ IAM Policy não encontrada"
+            echo "policy_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Importar IAM Policy
+      - name: Importar IAM Policy
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true'
         working-directory: infra
         run: |
           echo "Importando IAM Policy..."
           terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada ou não existe"
-          
+
+      # Importar attachment da IAM Policy
+      - name: Importar attachment da IAM Policy
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true' && steps.iam_role_check.outputs.role_exists == 'true'
+        working-directory: infra
+        run: |
           echo "Importando attachment da IAM Policy..."
           terraform import aws_iam_role_policy_attachment.lambda_policy_attach lambda-java-exec-role-manual/lambda-sns-publish-policy || echo "Attachment já importado ou não existe"
-
-      # Verificar existência do SNS
-      - name: Verificar existência de SNS
-        id: sns_check
-        run: |
-          set +e
-          SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
-          SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
-          set -e
-          
-          if [ -n "$SNS_CHECK" ]; then
-            echo "✅ SNS encontrado: $SNS_ARN"
-            echo "sns_exists=true" >> $GITHUB_OUTPUT
-            echo "sns_arn=$SNS_ARN" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ SNS não encontrado."
-            echo "sns_exists=false" >> $GITHUB_OUTPUT
-          fi
+    
+          # Verificar existência do SNS
+          - name: Verificar existência de SNS
+            id: sns_check
+            run: |
+              set +e
+              SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
+              SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
+              set -e
+              
+              if [ -n "$SNS_CHECK" ]; then
+                echo "✅ SNS encontrado: $SNS_ARN"
+                echo "sns_exists=true" >> $GITHUB_OUTPUT
+                echo "sns_arn=$SNS_ARN" >> $GITHUB_OUTPUT
+              else
+                echo "⚠️ SNS não encontrado."
+                echo "sns_exists=false" >> $GITHUB_OUTPUT
+              fi
 
       # Importar SNS se existir
       - name: Importar SNS se existir
