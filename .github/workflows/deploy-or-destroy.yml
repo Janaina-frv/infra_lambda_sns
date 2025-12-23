@@ -244,22 +244,10 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Baixar dependência AWS Lambda Java Core
-        if: env.TF_ACTION == 'apply'
-        run: |
-          mkdir -p libs
-          curl -o libs/aws-lambda-java-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-lambda-java-core/1.2.1/aws-lambda-java-core-1.2.1.jar
-
-      - name: Baixar dependência AWS SDK SNS
-        if: env.TF_ACTION == 'apply'
-        run: |
-          curl -o libs/aws-java-sdk-sns.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-sns/1.12.700/aws-java-sdk-sns-1.12.700.jar
-          curl -o libs/aws-java-sdk-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-core/1.12.700/aws-java-sdk-core-1.12.700.jar
-
       - name: Build Lambda com Maven (fat jar)
         if: env.TF_ACTION == 'apply'
         working-directory: lambda
-        run: mvn clean package
+        run: mvn clean package -U
 
       - name: Copiar JAR da Lambda
         if: env.TF_ACTION == 'apply'
