@@ -5,7 +5,7 @@ resource "aws_iam_policy" "lambda_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_policy_attach" {
-  role       = data.aws_iam_role.lambda_exec_role.id
+  role       = "lambda-java-exec-role-manual"
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 

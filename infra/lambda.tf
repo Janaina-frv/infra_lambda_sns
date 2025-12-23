@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "hello_lambda" {
   function_name = "HelloWorldLambda"
-  role          = data.aws_iam_role.lambda_exec_role.arn
+  role          = aws_iam_role.lambda_exec_role.arn
   handler       = "com.example.HelloWorldHandler"
   runtime       = "java11"
 
