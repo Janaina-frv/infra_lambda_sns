@@ -95,6 +95,7 @@ jobs:
           SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
           SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
           set -e
+          
           if [ -n "$SNS_CHECK" ]; then
             echo "✅ SNS encontrado: $SNS_ARN"
             echo "sns_exists=true" >> $GITHUB_OUTPUT
@@ -110,7 +111,8 @@ jobs:
         working-directory: infra
         run: |
           echo "Importando SNS para o estado..."
-          terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}" || echo "SNS já importado ou não existe"
+          terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}" \
+          || echo "⚠️ SNS já importado ou não existe"
 
       # Verificar existência da Lambda
       - name: Verificar existência da Lambda
