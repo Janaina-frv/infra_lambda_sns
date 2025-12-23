@@ -88,31 +88,37 @@ jobs:
           echo "Importando IAM Policy..."
           terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada ou não existe"
 
-      # Importar attachment da IAM Policy
+      # ----------------------------------------
+      # Importar attachment da IAM Policy na Role
+      # ----------------------------------------
       - name: Importar attachment da IAM Policy
         if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true' && steps.iam_role_check.outputs.role_exists == 'true'
         working-directory: infra
         run: |
           echo "Importando attachment da IAM Policy..."
-          terraform import aws_iam_role_policy_attachment.lambda_policy_attach lambda-java-exec-role-manual/lambda-sns-publish-policy || echo "Attachment já importado ou não existe"
-    
-          # Verificar existência do SNS
-          - name: Verificar existência de SNS
-            id: sns_check
-            run: |
-              set +e
-              SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
-              SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
-              set -e
-              
-              if [ -n "$SNS_CHECK" ]; then
-                echo "✅ SNS encontrado: $SNS_ARN"
-                echo "sns_exists=true" >> $GITHUB_OUTPUT
-                echo "sns_arn=$SNS_ARN" >> $GITHUB_OUTPUT
-              else
-                echo "⚠️ SNS não encontrado."
-                echo "sns_exists=false" >> $GITHUB_OUTPUT
-              fi
+          terraform import aws_iam_role_policy_attachment.lambda_policy_attach \
+            lambda-java-exec-role-manual/lambda-sns-publish-policy \
+            || echo "Attachment já importado ou não existe"
+
+      # -------------------------
+      # Verificar existência do SNS
+      # -------------------------
+      - name: Verificar existência de SNS
+        id: sns_check
+        run: |
+          set +e
+          SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
+          SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
+          set -e
+          
+          if [ -n "$SNS_CHECK" ]; then
+          echo "✅ SNS encontrado: $SNS_ARN"
+          echo "sns_exists=true" >> $GITHUB_OUTPUT
+          echo "sns_arn=$SNS_ARN" >> $GITHUB_OUTPUT
+          else
+          echo "⚠️ SNS não encontrado."
+          echo "sns_exists=false" >> $GITHUB_OUTPUT
+          fi
 
       # Importar SNS se existir
       - name: Importar SNS se existir
