@@ -15,3 +15,10 @@ resource "aws_lambda_function" "hello_lambda" {
     }
   }
 }
+
+resource "aws_lambda_event_source_mapping" "sqs_trigger" {
+  event_source_arn  = aws_sqs_queue.my_queue.arn
+  function_name     = aws_lambda_function.hello_lambda.arn
+  batch_size        = 10  # quantas mensagens a Lambda recebe por vez
+  enabled           = true
+}
