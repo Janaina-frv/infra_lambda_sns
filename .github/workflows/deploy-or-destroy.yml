@@ -54,10 +54,10 @@ jobs:
         run: |
           if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sns-publish-policy >/dev/null 2>&1; then
             echo "✅ IAM Policy encontrada"
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "policy_exists=true" >> $GITHUB_OUTPUT
           else
             echo "⚠️ IAM Policy não encontrada"
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "policy_exists=false" >> $GITHUB_OUTPUT
           fi
 
       # Verificar existência da IAM Role
@@ -66,10 +66,10 @@ jobs:
         run: |
           if aws iam get-role --role-name lambda-java-exec-role-manual >/dev/null 2>&1; then
             echo "✅ IAM Role encontrada"
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "role_exists=true" >> $GITHUB_OUTPUT
           else
             echo "⚠️ IAM Role não encontrada"
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "role_exists=false" >> $GITHUB_OUTPUT
           fi
 
       # Importar IAM Role e Policy somente se existirem
