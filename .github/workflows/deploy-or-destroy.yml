@@ -170,7 +170,7 @@ jobs:
 
       # Destruir attachment da IAM Policy (se existir)
       - name: Destruir attachment da IAM Policy
-        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true'
         working-directory: infra
         run: |
           echo "Destruindo attachment da IAM Policy..."
@@ -178,7 +178,7 @@ jobs:
 
       # Destruir IAM Policy
       - name: Destruir IAM Policy
-        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true'
         working-directory: infra
         run: |
           echo "Destruindo IAM Policy..."
@@ -186,7 +186,7 @@ jobs:
 
       # Destruir IAM Role
       - name: Destruir IAM Role
-        if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.exists == 'true'
+        if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.role_exists == 'true'
         working-directory: infra
         run: |
           echo "Destruindo IAM Role..."
