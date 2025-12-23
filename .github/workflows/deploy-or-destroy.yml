@@ -196,22 +196,35 @@ jobs:
           echo "Criando SNS..."
           terraform apply -target=aws_sns_topic.feedback_urgente -auto-approve
 
-      - name: Criar IAM Role
-        if: env.TF_ACTION == 'apply' && steps.iam_role_check.outputs.role_exists == 'false'
+      # --- Criar ou importar IAM Role ---
+      - name: Criar ou importar IAM Role
+        if: env.TF_ACTION == 'apply'
         working-directory: infra
         run: |
-          echo "Criando IAM Role..."
-          terraform apply -target=aws_iam_role.lambda_exec_role -auto-approve
+          if [ "${{ steps.iam_role_check.outputs.role_exists }}" == "true" ]; then
+            echo "IAM Role já existe, importando..."
+            terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual || echo "IAM Role já importada"
+          else
+            echo "Criando IAM Role..."
+            terraform apply -target=aws_iam_role.lambda_exec_role -auto-approve
+          fi
 
-      - name: Criar IAM Policy
-        if: env.TF_ACTION == 'apply' && steps.iam_policy_check.outputs.policy_exists == 'false'
+      # --- Criar ou importar IAM Policy ---
+      - name: Criar ou importar IAM Policy
+        if: env.TF_ACTION == 'apply'
         working-directory: infra
         run: |
-          echo "Criando IAM Policy..."
-          terraform apply -target=aws_iam_policy.lambda_policy -auto-approve
+          if [ "${{ steps.iam_policy_check.outputs.policy_exists }}" == "true" ]; then
+            echo "IAM Policy já existe, importando..."
+            terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada"
+          else
+            echo "Criando IAM Policy..."
+            terraform apply -target=aws_iam_policy.lambda_policy -auto-approve
+          fi
 
+      # --- Criar attachment da IAM Policy na Role ---
       - name: Criar attachment da IAM Policy
-        if: env.TF_ACTION == 'apply' && steps.iam_role_check.outputs.role_exists == 'true' && steps.iam_policy_check.outputs.policy_exists == 'true'
+        if: env.TF_ACTION == 'apply'
         working-directory: infra
         run: |
           echo "Criando attachment da IAM Policy na Role..."
