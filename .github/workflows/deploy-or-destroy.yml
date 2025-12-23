@@ -48,51 +48,6 @@ jobs:
         working-directory: infra
         run: terraform validate
 
-      # Verificar e importar SNS
-
-      - name: Verificar existência de SNS
-        id: sns_check
-        run: |
-          set +e
-          SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
-          SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
-          set -e
-          
-          if [ -n "$SNS_CHECK" ]; then
-            echo "✅ SNS encontrado: $SNS_ARN"
-            echo "sns_exists=true" >> $GITHUB_OUTPUT
-            echo "sns_arn=$SNS_ARN" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ SNS não encontrado."
-            echo "sns_exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Importar SNS se existir
-        if: steps.sns_check.outputs.sns_exists == 'true'
-        working-directory: infra
-        run: |
-          echo "Importando SNS para o estado..."
-          terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}"
-
-      # Verificar e importar Lambda
-      - name: Verificar existência de Lambda
-        id: lambda_check
-        run: |
-          if aws lambda get-function --function-name $FUNCTION_NAME; then
-            echo "✅ Lambda encontrada: $FUNCTION_NAME"
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Lambda não encontrada."
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Importar Lambda se existir
-        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
-        working-directory: infra
-        run: |
-          echo "Importando Lambda para o estado..."
-          terraform import aws_lambda_function.${RESOURCE_NAME} ${FUNCTION_NAME}
-
       # Verificar existência da IAM Policy
       - name: Verificar existência da IAM Policy
         id: iam_policy_check
@@ -117,18 +72,66 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      # Importar IAM Role e Policy (apenas se existirem)
+      # Importar IAM Role e Policy somente se existirem
       - name: Importar IAM Role e Policy
-        if: env.TF_ACTION == 'destroy' && (steps.iam_role_check.outputs.exists == 'true' || steps.iam_policy_check.outputs.exists == 'true')
+        if: env.TF_ACTION == 'destroy'
         working-directory: infra
         run: |
           if [ "${{ steps.iam_role_check.outputs.exists }}" == "true" ]; then
+            echo "Importando IAM Role..."
             terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual || echo "IAM Role já importada ou não existe"
           fi
           if [ "${{ steps.iam_policy_check.outputs.exists }}" == "true" ]; then
+            echo "Importando IAM Policy..."
             terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada ou não existe"
             terraform import aws_iam_role_policy_attachment.lambda_policy_attach lambda-java-exec-role-manual/lambda-sns-publish-policy || echo "Attachment já importado ou não existe"
           fi
+
+      # Verificar existência do SNS
+      - name: Verificar existência de SNS
+        id: sns_check
+        run: |
+          set +e
+          SNS_ARN="arn:aws:sns:$AWS_REGION:$AWS_ACCOUNT_ID:$SNS_NAME"
+          SNS_CHECK=$(aws sns get-topic-attributes --topic-arn "$SNS_ARN" --output text 2>/dev/null)
+          set -e
+          if [ -n "$SNS_CHECK" ]; then
+            echo "✅ SNS encontrado: $SNS_ARN"
+            echo "sns_exists=true" >> $GITHUB_OUTPUT
+            echo "sns_arn=$SNS_ARN" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ SNS não encontrado."
+            echo "sns_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Importar SNS se existir
+      - name: Importar SNS se existir
+        if: steps.sns_check.outputs.sns_exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Importando SNS para o estado..."
+          terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}" || echo "SNS já importado ou não existe"
+
+      # Verificar existência da Lambda
+      - name: Verificar existência da Lambda
+        id: lambda_check
+        run: |
+          if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
+            echo "✅ Lambda encontrada: $FUNCTION_NAME"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Lambda não encontrada."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Importar Lambda se existir
+      - name: Importar Lambda se existir
+        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Importando Lambda para o estado..."
+          terraform import aws_lambda_function.${RESOURCE_NAME} ${FUNCTION_NAME} || echo "Lambda já importada ou não existe"
+
 
 ##Destruir recursos na ordem correta
 
