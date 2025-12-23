@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: HelloWorldLambda
       SNS_NAME: feedback_urgente-sns
@@ -48,7 +48,7 @@ jobs:
         working-directory: infra
         run: terraform validate
 
-      # Configuracoes SNS
+      # Verificar e importar SNS
 
       - name: Verificar existência de SNS
         id: sns_check
@@ -74,21 +74,7 @@ jobs:
           echo "Importando SNS para o estado..."
           terraform import aws_sns_topic.feedback_urgente "${{ steps.sns_check.outputs.sns_arn }}"
 
-      - name: Executar destroy da SNS
-        if: env.TF_ACTION == 'destroy' && steps.sns_check.outputs.sns_exists == 'true'
-        working-directory: infra
-        run: |
-          echo "Destruindo SNS..."
-          terraform destroy -target=aws_sns_topic.feedback_urgente -auto-approve
-
-      - name: Executar apply da SNS
-        if: env.TF_ACTION == 'apply' && steps.sns_check.outputs.sns_exists == 'false'
-        working-directory: infra
-        run: |
-          echo "Criando SNS..."
-          terraform apply -target=aws_sns_topic.feedback_urgente -auto-approve
-
-      # Construção da Lambda
+      # Verificar e importar Lambda
       - name: Verificar existência de Lambda
         id: lambda_check
         run: |
@@ -106,51 +92,6 @@ jobs:
         run: |
           echo "Importando Lambda para o estado..."
           terraform import aws_lambda_function.${RESOURCE_NAME} ${FUNCTION_NAME}
-
-      - name: Executar destroy da Lambda
-        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
-        working-directory: infra
-        run: |
-          echo "Destruindo Lambda..."
-          terraform destroy -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
-
-      - name: Instalar Java e compilar (modo apply)
-        if: env.TF_ACTION == 'apply'
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-
-      - name: Baixar dependência AWS Lambda Java Core
-        if: env.TF_ACTION == 'apply'
-        run: |
-          mkdir -p libs
-          curl -o libs/aws-lambda-java-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-lambda-java-core/1.2.1/aws-lambda-java-core-1.2.1.jar
-
-      - name: Baixar dependência AWS SDK SNS
-        if: env.TF_ACTION == 'apply'
-        run: |
-          curl -o libs/aws-java-sdk-sns.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-sns/1.12.700/aws-java-sdk-sns-1.12.700.jar
-          curl -o libs/aws-java-sdk-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-core/1.12.700/aws-java-sdk-core-1.12.700.jar
-
-      - name: Build Lambda com Maven (fat jar)
-        if: env.TF_ACTION == 'apply'
-        working-directory: lambda
-        run: mvn clean package
-
-      - name: Copiar JAR da Lambda
-        if: env.TF_ACTION == 'apply'
-        run: |
-          mkdir -p infra/build/lambda
-          cp lambda/target/hello-lambda-1.0.jar infra/build/lambda/hello-lambda.jar
-
-
-      - name: Executar apply da Lambda
-        if: env.TF_ACTION == 'apply' && steps.lambda_check.outputs.exists == 'false'
-        working-directory: infra
-        run: |
-          echo "Criando Lambda..."
-          terraform apply -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
 
       # Verificar existência da IAM Policy
       - name: Verificar existência da IAM Policy
@@ -189,6 +130,24 @@ jobs:
             terraform import aws_iam_role_policy_attachment.lambda_policy_attach lambda-java-exec-role-manual/lambda-sns-publish-policy || echo "Attachment já importado ou não existe"
           fi
 
+##Destruir recursos na ordem correta
+
+      # Destruir Lambda
+      - name: Executar destroy da Lambda
+        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo Lambda..."
+          terraform destroy -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
+
+      # Destruir SNS
+      - name: Executar destroy da SNS
+        if: env.TF_ACTION == 'destroy' && steps.sns_check.outputs.sns_exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo SNS..."
+          terraform destroy -target=aws_sns_topic.feedback_urgente -auto-approve
+
       # Destruir attachment da IAM Policy (se existir)
       - name: Destruir attachment da IAM Policy
         if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.exists == 'true'
@@ -212,6 +171,16 @@ jobs:
         run: |
           echo "Destruindo IAM Role..."
           terraform destroy -target=aws_iam_role.lambda_exec_role -auto-approve || echo "Role não encontrada ou já destruída"
+
+##Criando recursos na ordem correta
+
+      # --- Criar SNS ---
+      - name: Executar apply da SNS
+        if: env.TF_ACTION == 'apply' && steps.sns_check.outputs.sns_exists == 'false'
+        working-directory: infra
+        run: |
+          echo "Criando SNS..."
+          terraform apply -target=aws_sns_topic.feedback_urgente -auto-approve
 
       # --- Criar IAM Role ---
       - name: Criar IAM Role
@@ -243,3 +212,40 @@ jobs:
           echo "IAM Policy criada: $POLICY_NAME"
           aws iam get-policy --policy-arn arn:aws:iam::$AWS_ACCOUNT_ID:policy/$POLICY_NAME
 
+      # --- Criar Lambda ---
+      - name: Instalar Java e compilar (modo apply)
+        if: env.TF_ACTION == 'apply'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Baixar dependência AWS Lambda Java Core
+        if: env.TF_ACTION == 'apply'
+        run: |
+          mkdir -p libs
+          curl -o libs/aws-lambda-java-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-lambda-java-core/1.2.1/aws-lambda-java-core-1.2.1.jar
+
+      - name: Baixar dependência AWS SDK SNS
+        if: env.TF_ACTION == 'apply'
+        run: |
+          curl -o libs/aws-java-sdk-sns.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-sns/1.12.700/aws-java-sdk-sns-1.12.700.jar
+          curl -o libs/aws-java-sdk-core.jar https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-core/1.12.700/aws-java-sdk-core-1.12.700.jar
+
+      - name: Build Lambda com Maven (fat jar)
+        if: env.TF_ACTION == 'apply'
+        working-directory: lambda
+        run: mvn clean package
+
+      - name: Copiar JAR da Lambda
+        if: env.TF_ACTION == 'apply'
+        run: |
+          mkdir -p infra/build/lambda
+          cp lambda/target/hello-lambda-1.0.jar infra/build/lambda/hello-lambda.jar
+
+      - name: Executar apply da Lambda
+        if: env.TF_ACTION == 'apply' && steps.lambda_check.outputs.exists == 'false'
+        working-directory: infra
+        run: |
+          echo "Criando Lambda..."
+          terraform apply -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
