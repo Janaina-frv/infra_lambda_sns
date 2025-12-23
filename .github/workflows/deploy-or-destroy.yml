@@ -230,15 +230,6 @@ jobs:
           echo "Criando attachment da IAM Policy na Role..."
           terraform apply -target=aws_iam_role_policy_attachment.lambda_policy_attach -auto-approve
 
-      # --- Validar ---
-      - name: Validar recursos criados
-        if: env.TF_ACTION == 'apply'
-        run: |
-          echo "IAM Role criada: $ROLE_NAME"
-          aws iam get-role --role-name $ROLE_NAME
-          echo "IAM Policy criada: $POLICY_NAME"
-          aws iam get-policy --policy-arn arn:aws:iam::$AWS_ACCOUNT_ID:policy/$POLICY_NAME
-
       # --- Criar Lambda ---
       - name: Instalar Java e compilar (modo apply)
         if: env.TF_ACTION == 'apply'
