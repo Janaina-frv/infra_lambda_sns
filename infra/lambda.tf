@@ -1,5 +1,5 @@
 resource "aws_lambda_function" "hello_lambda" {
-  function_name = "HelloWorldLambda"
+  function_name = "sqs-urgente-sns"
   role          = aws_iam_role.lambda_exec_role.arn
   handler       = "com.example.HelloWorldHandler"
   runtime       = "java11"

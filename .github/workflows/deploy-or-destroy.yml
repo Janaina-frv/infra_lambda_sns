@@ -16,9 +16,9 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
-      FUNCTION_NAME: HelloWorldLambda
+      FUNCTION_NAME: sqs-urgente-sns
       SNS_NAME: feedback_urgente-sns
       PATH_JAVA: lambda/src/main/java/com/example/HelloWorldHandler.java
       PATH_CLASS: com/example/HelloWorldHandler.class
@@ -52,7 +52,7 @@ jobs:
       - name: Verificar existência da IAM Role
         id: iam_role_check
         run: |
-          if aws iam get-role --role-name lambda-java-exec-role-manual >/dev/null 2>&1; then
+          if aws iam get-role --role-name lambda-java-sqs-sns-role >/dev/null 2>&1; then
             echo "✅ IAM Role encontrada"
             echo "role_exists=true" >> $GITHUB_OUTPUT
           else
@@ -66,7 +66,7 @@ jobs:
         working-directory: infra
         run: |
           echo "Importando IAM Role..."
-          terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual || echo "IAM Role já importada ou não existe"
+          terraform import aws_iam_role.lambda_exec_role lambda-java-sqs-sns-role || echo "IAM Role já importada ou não existe"
 
       # Verificar existência da IAM Policy
       - name: Verificar existência da IAM Policy
@@ -97,7 +97,7 @@ jobs:
         run: |
           echo "Importando attachment da IAM Policy..."
           terraform import aws_iam_role_policy_attachment.lambda_policy_attach \
-            lambda-java-exec-role-manual/lambda-sns-publish-policy \
+            lambda-java-sqs-sns-role/lambda-sns-publish-policy \
             || echo "Attachment já importado ou não existe"
 
       # -------------------------
@@ -209,7 +209,7 @@ jobs:
         run: |
           if [ "${{ steps.iam_role_check.outputs.role_exists }}" == "true" ]; then
             echo "IAM Role já existe, importando..."
-            terraform import aws_iam_role.lambda_exec_role lambda-java-exec-role-manual || echo "IAM Role já importada"
+            terraform import aws_iam_role.lambda_exec_role lambda-java-sqs-sns-role || echo "IAM Role já importada"
           else
             echo "Criando IAM Role..."
             terraform apply -target=aws_iam_role.lambda_exec_role -auto-approve

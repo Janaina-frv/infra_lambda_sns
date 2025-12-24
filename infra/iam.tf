@@ -5,12 +5,12 @@ resource "aws_iam_policy" "lambda_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_policy_attach" {
-  role       = "lambda-java-exec-role-manual"
+  role       = "lambda-java-sqs-sns-role"
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
 resource "aws_iam_role" "lambda_exec_role" {
-  name = "lambda-java-exec-role-manual"
+  name = "lambda-java-sqs-sns-role"
 
   description = "IAM Role para execução de funções Lambda em Java com permissão de publicar no SNS"
 
