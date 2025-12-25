@@ -18,7 +18,7 @@ resource "aws_lambda_function" "hello_lambda" {
 
 resource "aws_lambda_event_source_mapping" "sqs_trigger" {
   event_source_arn  = data.aws_sqs_queue.feedback_urgente.arn
-  function_name     = aws_lambda_function.hello_lambda.arn
+  function_name     = aws_lambda_function.hello_lambda.function_name
   batch_size        = 10  # quantas mensagens a Lambda recebe por vez
   enabled           = true
 }

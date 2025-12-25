@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: sqs-urgente-sns
       SNS_NAME: feedback_urgente-sns
@@ -149,6 +149,23 @@ jobs:
           echo "Importando Lambda para o estado..."
           terraform import aws_lambda_function.${RESOURCE_NAME} ${FUNCTION_NAME} || echo "Lambda já importada ou não existe"
 
+      - name: Importar Event Source Mapping (Lambda → SQS)
+        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          # Descobre o UUID do event source mapping pelo nome da Lambda
+          UUID=$(aws lambda list-event-source-mappings \
+          --function-name $LAMBDA_FUNCTION_NAME \
+          --query "EventSourceMappings[?EventSourceArn=='arn:aws:sqs:us-east-1:757367947438:feedback_urgente-sqs'].UUID" \
+          --output text)
+          
+          if [ -n "$UUID" ] && [ "$UUID" != "None" ]; then
+          echo "Importando Event Source Mapping: $UUID"
+          terraform import aws_lambda_event_source_mapping.sqs_trigger $UUID
+          else
+          echo "Event Source Mapping não encontrado, pulando import"
+          fi
+
 
 ##Destruir recursos na ordem correta
 
@@ -236,6 +253,14 @@ jobs:
           echo "Criando attachment da IAM Policy na Role..."
           terraform apply -target=aws_iam_role_policy_attachment.lambda_policy_attach -auto-approve
 
+      - name: DESTROY - Event Source Mapping (Lambda → SQS)
+        if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo Event Source Mapping (Lambda → SQS)..."
+          terraform destroy -target=aws_lambda_event_source_mapping.sqs_trigger -auto-approve
+
+
       # --- Criar Lambda ---
       - name: Instalar Java e compilar (modo apply)
         if: env.TF_ACTION == 'apply'
@@ -261,3 +286,13 @@ jobs:
         run: |
           echo "Criando Lambda..."
           terraform apply -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
+
+      - name: APPLY - Event Source Mapping (Lambda → SQS)
+        if: env.TF_ACTION == 'apply'
+        working-directory: infra
+        run: |
+          echo "Criando Event Source Mapping entre Lambda e SQS..."
+          terraform apply \
+            -target=aws_lambda_event_source_mapping.sqs_trigger \
+            -auto-approve
+

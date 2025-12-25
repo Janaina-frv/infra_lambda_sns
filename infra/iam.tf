@@ -1,14 +1,3 @@
-resource "aws_iam_policy" "lambda_policy" {
-  name        = "lambda-sns-publish-policy"
-  description = "Permite Lambda publicar mensagens no SNS"
-  policy      = file("${path.module}/policy/lambda.json")
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_policy_attach" {
-  role       = "lambda-java-sqs-sns-role"
-  policy_arn = aws_iam_policy.lambda_policy.arn
-}
-
 resource "aws_iam_role" "lambda_exec_role" {
   name = "lambda-java-sqs-sns-role"
 
@@ -26,4 +15,15 @@ resource "aws_iam_role" "lambda_exec_role" {
       }
     ]
   })
+}
+
+resource "aws_iam_policy" "lambda_policy" {
+  name        = "lambda-sns-publish-policy"
+  description = "Permite Lambda publicar mensagens no SNS"
+  policy      = file("${path.module}/policy/lambda.json")
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_policy_attach" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = aws_iam_policy.lambda_policy.arn
 }
