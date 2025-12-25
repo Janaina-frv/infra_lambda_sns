@@ -88,9 +88,7 @@ jobs:
           echo "Importando IAM Policy..."
           terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada ou não existe"
 
-      # ----------------------------------------
       # Importar attachment da IAM Policy na Role
-      # ----------------------------------------
       - name: Importar attachment da IAM Policy
         if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true' && steps.iam_role_check.outputs.role_exists == 'true'
         working-directory: infra
@@ -100,9 +98,34 @@ jobs:
             lambda-java-sqs-sns-role/lambda-sns-publish-policy \
             || echo "Attachment já importado ou não existe"
 
-      # -------------------------
+      # Verificar SNS Subscription
+      - name: Verificar SNS Subscription
+        id: get_sns_subscription
+        run: |
+          TOPIC_ARN="arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:${SNS_NAME}"
+          ENDPOINT="seuemail@dominio.com"
+          
+          SUB_ARN=$(aws sns list-subscriptions-by-topic --topic-arn "$TOPIC_ARN" \
+            --query "Subscriptions[?Endpoint=='$ENDPOINT'].SubscriptionArn" --output text)
+          
+          if [ -n "$SUB_ARN" ] && [ "$SUB_ARN" != "None" ]; then
+            echo "✅ Subscription encontrada: $SUB_ARN"
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "SUB_ARN=$SUB_ARN" >> $GITHUB_ENV
+          else
+            echo "⚠️ Subscription não encontrada"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Importar SNS Subscription se existir
+      - name: Importar SNS Subscription se existir
+        if: env.TF_ACTION == 'destroy' && steps.get_sns_subscription.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Importando SNS Subscription..."
+          terraform import aws_sns_topic_subscription.feedback_email $SUB_ARN
+
       # Verificar existência do SNS
-      # -------------------------
       - name: Verificar existência de SNS
         id: sns_check
         run: |
@@ -149,6 +172,7 @@ jobs:
           echo "Importando Lambda para o estado..."
           terraform import aws_lambda_function.${RESOURCE_NAME} ${FUNCTION_NAME} || echo "Lambda já importada ou não existe"
 
+      # Importar Event Source Mapping (Lambda → SQS)
       - name: Importar Event Source Mapping (Lambda → SQS)
         if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
         working-directory: infra
@@ -167,8 +191,9 @@ jobs:
 
 
 
-##Destruir recursos na ordem correta
+      ##Destruir recursos na ordem correta
 
+      # Destruir Event Source Mapping Lambda
       - name: DESTROY - Event Source Mapping (Lambda → SQS)
         if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
         working-directory: infra
@@ -184,6 +209,14 @@ jobs:
         run: |
           echo "Destruindo Lambda..."
           terraform destroy -target=aws_lambda_function.${RESOURCE_NAME} -auto-approve
+
+      # Destruir SNS Subscription
+      - name: DESTROY - SNS Subscription (email)
+        if: env.TF_ACTION == 'destroy' && steps.get_sns_subscription.outputs.exists == 'true'
+        working-directory: infra
+        run: |
+          echo "Destruindo SNS Subscription (email)..."
+          terraform destroy -target=aws_sns_topic_subscription.feedback_email -auto-approve
 
       # Destruir SNS
       - name: Executar destroy da SNS
@@ -217,7 +250,7 @@ jobs:
           echo "Destruindo IAM Role..."
           terraform destroy -target=aws_iam_role.lambda_exec_role -auto-approve || echo "Role não encontrada ou já destruída"
 
-##Criando recursos na ordem correta
+      ##Criando recursos na ordem correta
 
       # --- Criar SNS ---
       - name: Executar apply da SNS
@@ -226,6 +259,16 @@ jobs:
         run: |
           echo "Criando SNS..."
           terraform apply -target=aws_sns_topic.feedback_urgente -auto-approve
+
+      # --- Criar SNS Subscription (email) ---
+      - name: APPLY - SNS Subscription (email)
+        if: env.TF_ACTION == 'apply' && steps.get_sns_subscription.outputs.exists == 'false'
+        working-directory: infra
+        run: |
+          echo "Criando SNS Subscription (email)..."
+          terraform apply \
+            -target=aws_sns_topic_subscription.feedback_email \
+            -auto-approve
 
       # --- Criar ou importar IAM Role ---
       - name: Criar ou importar IAM Role
