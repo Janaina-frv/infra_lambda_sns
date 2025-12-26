@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: sqs-urgente-sns
       SNS_NAME: feedback_urgente-sns
@@ -86,11 +86,31 @@ jobs:
         working-directory: infra
         run: |
           echo "Importando IAM Policy..."
-          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy || echo "IAM Policy já importada ou não existe"
+          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy 
+          || echo "IAM Policy já importada ou não existe"
+
+      # Verificar attachment da IAM Policy na Role
+      - name: Verificar attachment da IAM Policy
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true' && steps.iam_role_check.outputs.role_exists == 'true'
+        id: iam_policy_attachment_check
+        working-directory: infra
+        run: |
+          echo "Verficando attachment da IAM Policy..."
+          ATTACHED=$(aws iam list-attached-role-policies \
+            --role-name "$IAM_ROLE_NAME" \
+            --query "AttachedPolicies[?PolicyArn=='$POLICY_ARN'].PolicyArn" \
+            --output text)
+          if [ -n "$ATTACHED" ]; then
+            echo "✅ Attachment IAM Policy encontrada"
+            echo "policy_attachment_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Attachment IAM Policy não encontrada"
+            echo "policy_attachment_exists=false" >> $GITHUB_OUTPUT
+          fi
 
       # Importar attachment da IAM Policy na Role
       - name: Importar attachment da IAM Policy
-        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true' && steps.iam_role_check.outputs.role_exists == 'true'
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_attachment_check.outputs.policy_attachment_exists == 'true'
         working-directory: infra
         run: |
           echo "Importando attachment da IAM Policy..."
@@ -242,7 +262,7 @@ jobs:
 
       # Destruir attachment da IAM Policy (se existir)
       - name: Destruir attachment da IAM Policy
-        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true'
+        if: env.TF_ACTION == 'destroy' && steps.iam_policy_attachment_check.outputs.policy_attachment_exists == 'true'
         working-directory: infra
         run: |
           echo "Destruindo attachment da IAM Policy..."
