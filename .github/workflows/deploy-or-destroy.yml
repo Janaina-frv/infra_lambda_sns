@@ -86,8 +86,7 @@ jobs:
         working-directory: infra
         run: |
           echo "Importando IAM Policy..."
-          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy 
-          || echo "IAM Policy já importada ou não existe"
+          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy || echo "IAM Policy já importada ou não existe"
 
       # Verificar attachment da IAM Policy na Role
       - name: Verificar attachment da IAM Policy
