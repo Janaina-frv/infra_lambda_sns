@@ -72,7 +72,7 @@ jobs:
       - name: Verificar existência da IAM Policy
         id: iam_policy_check
         run: |
-          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sns-publish-policy >/dev/null 2>&1; then
+          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy >/dev/null 2>&1; then
             echo "✅ IAM Policy encontrada"
             echo "policy_exists=true" >> $GITHUB_OUTPUT
           else
@@ -86,7 +86,7 @@ jobs:
         working-directory: infra
         run: |
           echo "Importando IAM Policy..."
-          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada ou não existe"
+          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy || echo "IAM Policy já importada ou não existe"
 
       # Importar attachment da IAM Policy na Role
       - name: Importar attachment da IAM Policy
@@ -95,7 +95,7 @@ jobs:
         run: |
           echo "Importando attachment da IAM Policy..."
           terraform import aws_iam_role_policy_attachment.lambda_policy_attach \
-            lambda-java-sqs-sns-role/lambda-sns-publish-policy \
+            lambda-java-sqs-sns-role/lambda-sqs-sns-policy \
             || echo "Attachment já importado ou não existe"
 
       # Verificar SNS Subscription
@@ -304,7 +304,7 @@ jobs:
         run: |
           if [ "${{ steps.iam_policy_check.outputs.policy_exists }}" == "true" ]; then
             echo "IAM Policy já existe, importando..."
-            terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sns-publish-policy || echo "IAM Policy já importada"
+            terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy || echo "IAM Policy já importada"
           else
             echo "Criando IAM Policy..."
             terraform apply -target=aws_iam_policy.lambda_policy -auto-approve
