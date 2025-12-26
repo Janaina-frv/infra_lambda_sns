@@ -4,7 +4,11 @@
     {
       "Effect": "Allow",
       "Action": [
-        "sns:Publish"
+        "sns:Publish",
+        "sns:GetSubscriptionAttributes",
+        "sns:ListSubscriptions",
+        "sns:ListSubscriptionsByTopic",
+        "sns:GetTopicAttributes"
       ],
       "Resource": "arn:aws:sns:us-east-1:757367947438:feedback_urgente-sns"
     },

@@ -22,7 +22,7 @@ resource "aws_iam_role" "lambda_exec_role" {
 #####################################
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "lambda-sns-publish-policy"
+  name        = "lambda-sqs-sns-policy"
   description = "Permite Lambda publicar mensagens no SNS"
   policy      = file("${path.module}/policy/lambda.json")
 }
