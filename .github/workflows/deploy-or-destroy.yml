@@ -105,8 +105,17 @@ jobs:
           TOPIC_ARN="arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:${SNS_NAME}"
           ENDPOINT="janainafrv@hotmail.com"
           
+          set +e
           SUB_ARN=$(aws sns list-subscriptions-by-topic --topic-arn "$TOPIC_ARN" \
-            --query "Subscriptions[?Endpoint=='$ENDPOINT'].SubscriptionArn" --output text)
+            --query "Subscriptions[?Endpoint=='$ENDPOINT'].SubscriptionArn" --output text 2>/dev/null)
+          STATUS=$?
+          set -e
+          
+          if [ $STATUS -ne 0 ]; then
+            echo "⚠️ Tópico $TOPIC_ARN não existe, pulando verificação"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           if [ -n "$SUB_ARN" ] && [ "$SUB_ARN" != "None" ]; then
             echo "✅ Subscription encontrada: $SUB_ARN"
@@ -122,8 +131,13 @@ jobs:
         if: env.TF_ACTION == 'destroy' && steps.get_sns_subscription.outputs.exists == 'true'
         working-directory: infra
         run: |
-          echo "Importando SNS Subscription..."
-          terraform import aws_sns_topic_subscription.feedback_email $SUB_ARN
+          if [ -n "$SUB_ARN" ]; then
+            echo "Importando SNS Subscription..."
+            terraform import aws_sns_topic_subscription.feedback_email $SUB_ARN
+          else
+            echo "Nenhuma subscription para importar, pulando"
+          fi
+      
 
       # Verificar existência do SNS
       - name: Verificar existência de SNS
