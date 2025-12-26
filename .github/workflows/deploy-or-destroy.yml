@@ -48,74 +48,91 @@ jobs:
         working-directory: infra
         run: terraform validate
 
-      # Verificar existência da IAM Role
+      # Step 1 - Verificar existência da IAM Role
       - name: Verificar existência da IAM Role
         id: iam_role_check
         run: |
-          if aws iam get-role --role-name lambda-java-sqs-sns-role >/dev/null 2>&1; then
+          ROLE_NAME="lambda-java-sqs-sns-role"
+          if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
             echo "✅ IAM Role encontrada"
             echo "role_exists=true" >> $GITHUB_OUTPUT
+            echo "role_name=$ROLE_NAME" >> $GITHUB_OUTPUT
           else
             echo "⚠️ IAM Role não encontrada"
             echo "role_exists=false" >> $GITHUB_OUTPUT
           fi
 
-      # Importar IAM Role
+      # Step 2 - Importar IAM Role
       - name: Importar IAM Role
         if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.role_exists == 'true'
         working-directory: infra
         run: |
           echo "Importando IAM Role..."
-          terraform import aws_iam_role.lambda_exec_role lambda-java-sqs-sns-role || echo "IAM Role já importada ou não existe"
+          terraform import aws_iam_role.lambda_exec_role "${{ steps.iam_role_check.outputs.role_name }}" || echo "IAM Role já importada ou não existe"
 
-      # Verificar existência da IAM Policy
+      # Step 3 - Verificar existência da IAM Policy
       - name: Verificar existência da IAM Policy
         id: iam_policy_check
         run: |
-          if aws iam get-policy --policy-arn arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy >/dev/null 2>&1; then
+          POLICY_ARN="arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy"
+          if aws iam get-policy --policy-arn "$POLICY_ARN" >/dev/null 2>&1; then
             echo "✅ IAM Policy encontrada"
             echo "policy_exists=true" >> $GITHUB_OUTPUT
+            echo "policy_arn=$POLICY_ARN" >> $GITHUB_OUTPUT
           else
             echo "⚠️ IAM Policy não encontrada"
             echo "policy_exists=false" >> $GITHUB_OUTPUT
           fi
 
-      # Importar IAM Policy
+      # Step 4 - Importar IAM Policy
       - name: Importar IAM Policy
         if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true'
         working-directory: infra
         run: |
           echo "Importando IAM Policy..."
-          terraform import aws_iam_policy.lambda_policy arn:aws:iam::757367947438:policy/lambda-sqs-sns-policy || echo "IAM Policy já importada ou não existe"
+          terraform import aws_iam_policy.lambda_policy "${{ steps.iam_policy_check.outputs.policy_arn }}" || echo "IAM Policy já importada ou não existe"
 
-      # Verificar attachment da IAM Policy na Role
+      # Step 5 - Verificar attachment da IAM Policy na Role
       - name: Verificar attachment da IAM Policy
-        if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true' && steps.iam_role_check.outputs.role_exists == 'true'
+        if: env.TF_ACTION == 'destroy' &&
+          steps.iam_policy_check.outputs.policy_exists == 'true' &&
+          steps.iam_role_check.outputs.role_exists == 'true'
         id: iam_policy_attachment_check
         working-directory: infra
         run: |
-          echo "Verficando attachment da IAM Policy..."
+          ROLE_NAME="${{ steps.iam_role_check.outputs.role_name }}"
+          POLICY_ARN="${{ steps.iam_policy_check.outputs.policy_arn }}"
+          
+          # Validação defensiva
+          if [ -z "$ROLE_NAME" ] || [ -z "$POLICY_ARN" ]; then
+            echo "Variáveis obrigatórias não definidas, pulando verificação"
+            echo "policy_attachment_exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           ATTACHED=$(aws iam list-attached-role-policies \
-            --role-name "$IAM_ROLE_NAME" \
+            --role-name "$ROLE_NAME" \
             --query "AttachedPolicies[?PolicyArn=='$POLICY_ARN'].PolicyArn" \
             --output text)
-          if [ -n "$ATTACHED" ]; then
-            echo "✅ Attachment IAM Policy encontrada"
+          
+          if [ -n "$ATTACHED" ] && [ "$ATTACHED" != "None" ]; then
+            echo "✅ Attachment IAM Policy encontrado"
             echo "policy_attachment_exists=true" >> $GITHUB_OUTPUT
           else
-            echo "⚠️ Attachment IAM Policy não encontrada"
+            echo "⚠️ Attachment IAM Policy não encontrado"
             echo "policy_attachment_exists=false" >> $GITHUB_OUTPUT
           fi
 
-      # Importar attachment da IAM Policy na Role
+      # Step 6 - Importar attachment da IAM Policy
       - name: Importar attachment da IAM Policy
         if: env.TF_ACTION == 'destroy' && steps.iam_policy_attachment_check.outputs.policy_attachment_exists == 'true'
         working-directory: infra
         run: |
-          echo "Importando attachment da IAM Policy..."
-          terraform import aws_iam_role_policy_attachment.lambda_policy_attach \
-            lambda-java-sqs-sns-role/lambda-sqs-sns-policy \
-            || echo "Attachment já importado ou não existe"
+          ROLE_NAME="${{ steps.iam_role_check.outputs.role_name }}"
+          POLICY_ARN="${{ steps.iam_policy_check.outputs.policy_arn }}"
+          
+          terraform import aws_iam_role_policy_attachment.lambda_policy_attach "${ROLE_NAME}/${POLICY_ARN}" || echo "Attachment já importado ou não existe"
+      
 
       # Verificar SNS Subscription
       - name: Verificar SNS Subscription
