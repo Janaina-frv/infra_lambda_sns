@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: sqs-urgente-sns
       SNS_NAME: feedback_urgente-sns
@@ -253,7 +253,7 @@ jobs:
 
 
       # Destruir Lambda
-      - name: Executar destroy da Lambda
+      - name: DESTROY - Executar destroy da Lambda
         if: env.TF_ACTION == 'destroy' && steps.lambda_check.outputs.exists == 'true'
         working-directory: infra
         run: |
@@ -269,7 +269,7 @@ jobs:
           terraform destroy -target=aws_sns_topic_subscription.feedback_email -auto-approve
 
       # Destruir SNS
-      - name: Executar destroy da SNS
+      - name: DESTROY - Executar destroy da SNS
         if: env.TF_ACTION == 'destroy' && steps.sns_check.outputs.sns_exists == 'true'
         working-directory: infra
         run: |
@@ -277,7 +277,7 @@ jobs:
           terraform destroy -target=aws_sns_topic.feedback_urgente -auto-approve
 
       # Destruir attachment da IAM Policy (se existir)
-      - name: Destruir attachment da IAM Policy
+      - name: DESTROY - Destruir attachment da IAM Policy
         if: env.TF_ACTION == 'destroy' && steps.iam_policy_attachment_check.outputs.policy_attachment_exists == 'true'
         working-directory: infra
         run: |
@@ -285,7 +285,7 @@ jobs:
           terraform destroy -target=aws_iam_role_policy_attachment.lambda_policy_attach -auto-approve || echo "Attachment não encontrado ou já destruído"
 
       # Destruir IAM Policy
-      - name: Destruir IAM Policy
+      - name: DESTROY - Destruir IAM Policy
         if: env.TF_ACTION == 'destroy' && steps.iam_policy_check.outputs.policy_exists == 'true'
         working-directory: infra
         run: |
@@ -293,7 +293,7 @@ jobs:
           terraform destroy -target=aws_iam_policy.lambda_policy -auto-approve || echo "Policy não encontrada ou já destruída"
 
       # Destruir IAM Role
-      - name: Destruir IAM Role
+      - name: DESTROY - Destruir IAM Role
         if: env.TF_ACTION == 'destroy' && steps.iam_role_check.outputs.role_exists == 'true'
         working-directory: infra
         run: |
@@ -303,7 +303,7 @@ jobs:
       ##Criando recursos na ordem correta
 
       # --- Criar SNS ---
-      - name: Executar apply da SNS
+      - name: APPLY - Executar apply da SNS
         if: env.TF_ACTION == 'apply' && steps.sns_check.outputs.sns_exists == 'false'
         working-directory: infra
         run: |
@@ -321,7 +321,7 @@ jobs:
             -auto-approve
 
       # --- Criar ou importar IAM Role ---
-      - name: Criar ou importar IAM Role
+      - name: APPLY - Criar ou importar IAM Role
         if: env.TF_ACTION == 'apply'
         working-directory: infra
         run: |
@@ -334,7 +334,7 @@ jobs:
           fi
 
       # --- Criar ou importar IAM Policy ---
-      - name: Criar ou importar IAM Policy
+      - name: APPLY - Criar ou importar IAM Policy
         if: env.TF_ACTION == 'apply'
         working-directory: infra
         run: |
@@ -347,7 +347,7 @@ jobs:
           fi
 
       # --- Criar attachment da IAM Policy na Role ---
-      - name: Criar attachment da IAM Policy
+      - name: APPLY - Criar attachment da IAM Policy
         if: env.TF_ACTION == 'apply'
         working-directory: infra
         run: |
