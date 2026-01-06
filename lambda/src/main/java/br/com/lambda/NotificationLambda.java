@@ -36,7 +36,7 @@ public class NotificationLambda implements RequestHandler<SQSEvent, String> {
 
                     Descrição: %s
                     Urgência: %s
-                    Nota: %.0f
+                    Nota: %.2f
                     Data do envio: %s
 
                     Att,
