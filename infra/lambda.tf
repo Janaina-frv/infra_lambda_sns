@@ -4,7 +4,7 @@ resource "aws_lambda_function" "hello_lambda" {
   handler       = "br.com.lambda.NotificationLambda::handleRequest"
   runtime       = "java17"
 
-  filename      = "${path.module}/build/lambda/ms-notification-1.0.0-SNAPSHOT.jar"
+  filename      = "${path.module}/build/lambda/ms-notification.jar"
 
   memory_size = 512
   timeout     = 10
