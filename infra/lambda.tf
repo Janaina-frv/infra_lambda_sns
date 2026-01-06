@@ -2,7 +2,7 @@ resource "aws_lambda_function" "hello_lambda" {
   function_name = "sqs-urgente-sns"
   role          = aws_iam_role.lambda_exec_role.arn
   handler       = "br.com.lambda.NotificationLambda::handleRequest"
-  runtime       = "java21"
+  runtime       = "java17"
 
   filename      = "${path.module}/build/lambda/ms-notification-1.0.0-SNAPSHOT.jar"
 
