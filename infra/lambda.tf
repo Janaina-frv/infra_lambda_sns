@@ -1,10 +1,10 @@
 resource "aws_lambda_function" "hello_lambda" {
   function_name = "sqs-urgente-sns"
   role          = aws_iam_role.lambda_exec_role.arn
-  handler       = "com.example.HelloWorldHandler"
-  runtime       = "java11"
+  handler       = "br.com.lambda.NotificationLambda::handleRequest"
+  runtime       = "java21"
 
-  filename      = "${path.module}/build/lambda/hello-lambda.jar"
+  filename      = "${path.module}/build/lambda/ms-notification-1.0.0-SNAPSHOT-runner.jar"
 
   memory_size = 512
   timeout     = 10
