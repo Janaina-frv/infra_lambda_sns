@@ -16,7 +16,7 @@ jobs:
     env:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 757367947438
-      TF_ACTION: apply # Altere para "apply" ou "destroy"
+      TF_ACTION: destroy # Altere para "apply" ou "destroy"
       RESOURCE_NAME: hello_lambda
       FUNCTION_NAME: sqs-urgente-sns
       SNS_NAME: feedback_urgente-sns
@@ -373,7 +373,7 @@ jobs:
         if: env.TF_ACTION == 'apply'
         run: |
           mkdir -p infra/build/lambda
-          cp lambda/target/ms-notification-1.0.0-SNAPSHOT-runner.jar infra/build/lambda/ms-notification-1.0.0-SNAPSHOT-runner.jar
+          cp lambda/target/ms-notification-1.0.0-SNAPSHOT.jar infra/build/lambda/ms-notification-1.0.0-SNAPSHOT.jar
 
       - name: Executar apply da Lambda
         if: env.TF_ACTION == 'apply' && steps.lambda_check.outputs.exists == 'false'

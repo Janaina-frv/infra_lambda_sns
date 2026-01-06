@@ -16,7 +16,7 @@ public class NotificationLambda implements RequestHandler<SQSEvent, String> {
     public NotificationLambda() {
         this.objectMapper = new ObjectMapper();
         this.snsClient = SnsClient.create(); // inicializa o SDK
-        this.topicArn = System.getenv("NOTIFICATION_TOPIC_ARN"); // variável de ambiente
+        this.topicArn = System.getenv("SNS_TOPIC_ARN"); // variável de ambiente
     }
 
     @Override
