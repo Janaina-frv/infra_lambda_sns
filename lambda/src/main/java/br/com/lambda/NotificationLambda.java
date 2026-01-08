@@ -7,30 +7,38 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.PublishRequest;
 
+import java.util.logging.Logger;
+
 public class NotificationLambda implements RequestHandler<SQSEvent, String> {
 
     private final ObjectMapper objectMapper;
     private final SnsClient snsClient;
     private final String topicArn;
+    private final Logger logger = Logger.getLogger(this.getClass().getName());
 
+    // Construtor padrão (AWS)
     public NotificationLambda() {
-        this.objectMapper = new ObjectMapper();
-        this.snsClient = SnsClient.create(); // inicializa o SDK
-        this.topicArn = System.getenv("SNS_TOPIC_ARN"); // variável de ambiente
+        this(new ObjectMapper(), SnsClient.create(), System.getenv("SNS_TOPIC_ARN"));
+    }
+
+    // Construtor para testes
+    public NotificationLambda(ObjectMapper objectMapper, SnsClient snsClient, String topicArn) {
+        this.objectMapper = objectMapper;
+        this.snsClient = snsClient;
+        this.topicArn = topicArn;
     }
 
     @Override
     public String handleRequest(SQSEvent event, com.amazonaws.services.lambda.runtime.Context context) {
-        try {
-            // passa por todas as mensagens na fila SQS
-            for (SQSEvent.SQSMessage msg : event.getRecords()) {
-                //popula o Dto com as informações recebidas no PayLoad do SQS
-                FeedbeckMessageDto dto = objectMapper.readValue(msg.getBody(), FeedbeckMessageDto.class);
 
-                // cria o ASSUNTO do email
+        try {
+            for (SQSEvent.SQSMessage msg : event.getRecords()) {
+
+                FeedbeckMessageDto dto =
+                        objectMapper.readValue(msg.getBody(), FeedbeckMessageDto.class);
+
                 String subject = "Novo feedback - Urgência: " + dto.urgencia();
 
-                // cria o CORPO do email
                 String body = """
                     Um novo feedback foi recebido:
 
@@ -43,21 +51,16 @@ public class NotificationLambda implements RequestHandler<SQSEvent, String> {
                     Serviço de Notificação
                     """.formatted(dto.descricao(), dto.urgencia(), dto.nota(), dto.date());
 
-                //Publica no topic sns
                 snsClient.publish(PublishRequest.builder()
                         .topicArn(topicArn)
                         .subject(subject)
                         .message(body)
                         .build());
-
-                // imprime no console para saber se foi enviado para o topic sns
-                System.out.println("Notificação enviada para o SNS: " + dto.descricao());
             }
 
-            // retorna ok
-            return "OK";
+            return "Ok";
+
         } catch (Exception e) {
-            // caso não processe as mensagens no SQS
             throw new RuntimeException("Erro ao processar evento SQS", e);
         }
     }
